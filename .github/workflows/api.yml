@@ -17,13 +17,9 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up GitHub CLI
-        uses: cli/cli-action@v2
-
       - name: Run backend logic
+        env:
+          AS_TOKEN: ${{ secrets.AS_TOKEN }}
         run: |
           ACTION="${{ github.event.inputs.action }}"
           USER="${{ github.event.inputs.username }}"
@@ -32,20 +28,23 @@ jobs:
           echo "Action: $ACTION, User: $USER"
 
           if [ "$ACTION" == "createRepo" ]; then
-            gh repo create your-org/$USER --private --confirm
+            curl -X POST \
+              -H "Authorization: token $AS_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              https://api.github.com/orgs/YOUR_ORG_NAME/repos \
+              -d "{\"name\":\"$USER\",\"private\":true}"
           elif [ "$ACTION" == "listFiles" ]; then
-            curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                 https://api.github.com/repos/your-org/$USER/contents \
-                 > files.json
-            cat files.json
+            curl -H "Authorization: token $AS_TOKEN" \
+                 -H "Accept: application/vnd.github+json" \
+                 https://api.github.com/repos/YOUR_ORG_NAME/$USER/contents
           elif [ "$ACTION" == "uploadFiles" ]; then
             echo "$FILES" | jq -c '.[]' | while read -r FILE; do
               NAME=$(echo "$FILE" | jq -r '.path')
               CONTENT=$(echo "$FILE" | jq -r '.contentBase64')
               curl -X PUT \
-                   -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                   -H "Authorization: token $AS_TOKEN" \
                    -H "Content-Type: application/json" \
                    -d "{\"message\":\"Add $NAME\",\"content\":\"$CONTENT\"}" \
-                   https://api.github.com/repos/your-org/$USER/contents/$NAME
+                   https://api.github.com/repos/YOUR_ORG_NAME/$USER/contents/$NAME
             done
           fi
