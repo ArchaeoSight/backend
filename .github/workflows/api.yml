@@ -1,0 +1,51 @@
+name: API Handler
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action type (createRepo, listFiles, uploadFiles)'
+        required: true
+      username:
+        description: 'Username or repo owner'
+        required: true
+      files:
+        description: 'Base64 encoded files JSON'
+        required: false
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up GitHub CLI
+        uses: cli/cli-action@v2
+
+      - name: Run backend logic
+        run: |
+          ACTION="${{ github.event.inputs.action }}"
+          USER="${{ github.event.inputs.username }}"
+          FILES="${{ github.event.inputs.files }}"
+
+          echo "Action: $ACTION, User: $USER"
+
+          if [ "$ACTION" == "createRepo" ]; then
+            gh repo create your-org/$USER --private --confirm
+          elif [ "$ACTION" == "listFiles" ]; then
+            curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                 https://api.github.com/repos/your-org/$USER/contents \
+                 > files.json
+            cat files.json
+          elif [ "$ACTION" == "uploadFiles" ]; then
+            echo "$FILES" | jq -c '.[]' | while read -r FILE; do
+              NAME=$(echo "$FILE" | jq -r '.path')
+              CONTENT=$(echo "$FILE" | jq -r '.contentBase64')
+              curl -X PUT \
+                   -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                   -H "Content-Type: application/json" \
+                   -d "{\"message\":\"Add $NAME\",\"content\":\"$CONTENT\"}" \
+                   https://api.github.com/repos/your-org/$USER/contents/$NAME
+            done
+          fi
