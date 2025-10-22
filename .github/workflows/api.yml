@@ -31,12 +31,12 @@ jobs:
             curl -X POST \
               -H "Authorization: token $AS_TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              https://api.github.com/orgs/YOUR_ORG_NAME/repos \
+              https://api.github.com/orgs/ArchaeoSight/repos \
               -d "{\"name\":\"$USER\",\"private\":true}"
           elif [ "$ACTION" == "listFiles" ]; then
             curl -H "Authorization: token $AS_TOKEN" \
                  -H "Accept: application/vnd.github+json" \
-                 https://api.github.com/repos/YOUR_ORG_NAME/$USER/contents
+                 https://api.github.com/repos/ArchaeoSight/$USER/contents
           elif [ "$ACTION" == "uploadFiles" ]; then
             echo "$FILES" | jq -c '.[]' | while read -r FILE; do
               NAME=$(echo "$FILE" | jq -r '.path')
@@ -45,6 +45,6 @@ jobs:
                    -H "Authorization: token $AS_TOKEN" \
                    -H "Content-Type: application/json" \
                    -d "{\"message\":\"Add $NAME\",\"content\":\"$CONTENT\"}" \
-                   https://api.github.com/repos/YOUR_ORG_NAME/$USER/contents/$NAME
+                   https://api.github.com/repos/ArchaeoSight/$USER/contents/$NAME
             done
           fi
