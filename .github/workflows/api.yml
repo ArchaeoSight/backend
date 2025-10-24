@@ -7,10 +7,10 @@ on:
         description: 'Action type (createRepo, listFiles, uploadFiles)'
         required: true
       username:
-        description: 'Username or repo owner'
+        description: 'Unique user repo name (e.g. repo-username)'
         required: true
       files:
-        description: 'Base64 encoded files JSON'
+        description: 'Base64 encoded files JSON array'
         required: false
 
 jobs:
@@ -21,6 +21,7 @@ jobs:
         env:
           AS_TOKEN: ${{ secrets.AS_TOKEN }}
         run: |
+          set -e  # fail fast on error
           ACTION="${{ github.event.inputs.action }}"
           USER="${{ github.event.inputs.username }}"
           FILES="${{ github.event.inputs.files }}"
@@ -28,23 +29,31 @@ jobs:
           echo "Action: $ACTION, User: $USER"
 
           if [ "$ACTION" == "createRepo" ]; then
-            curl -X POST \
+            echo "Creating repo ArchaeoSight/$USER..."
+            curl -s -X POST \
               -H "Authorization: token $AS_TOKEN" \
               -H "Accept: application/vnd.github+json" \
               https://api.github.com/orgs/ArchaeoSight/repos \
-              -d "{\"name\":\"$USER\",\"private\":true}"
+              -d "{\"name\":\"$USER\",\"private\":true,\"auto_init\":true}"
+
           elif [ "$ACTION" == "listFiles" ]; then
-            curl -H "Authorization: token $AS_TOKEN" \
-                 -H "Accept: application/vnd.github+json" \
-                 https://api.github.com/repos/ArchaeoSight/$USER/contents
+            echo "Listing files for ArchaeoSight/$USER..."
+            curl -s -H "Authorization: token $AS_TOKEN" \
+                     -H "Accept: application/vnd.github+json" \
+                     https://api.github.com/repos/ArchaeoSight/$USER/contents
+
           elif [ "$ACTION" == "uploadFiles" ]; then
             echo "$FILES" | jq -c '.[]' | while read -r FILE; do
               NAME=$(echo "$FILE" | jq -r '.path')
               CONTENT=$(echo "$FILE" | jq -r '.contentBase64')
-              curl -X PUT \
+              echo "Uploading $NAME to $USER..."
+              curl -s -X PUT \
                    -H "Authorization: token $AS_TOKEN" \
                    -H "Content-Type: application/json" \
                    -d "{\"message\":\"Add $NAME\",\"content\":\"$CONTENT\"}" \
                    https://api.github.com/repos/ArchaeoSight/$USER/contents/$NAME
             done
+          else
+            echo "Invalid action: $ACTION"
+            exit 1
           fi
